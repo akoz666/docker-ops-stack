@@ -1,41 +1,28 @@
-FROM java:latest
-MAINTAINER Dali <modified.dali.power@gmail.com>
+FROM ubuntu:14.04
 
-RUN export DEBIAN_FRONTEND=noninteractive
+ADD https://github.com/Yelp/dumb-init/releases/download/v1.0.2/dumb-init_1.0.2_amd64 /usr/bin/dumb-init
+RUN chmod +x /usr/bin/dumb-init
 
-# Update installation and install git, nodejs, npm and yarn + dependencies
-RUN apt-get update \
-    && apt-get install -y apt-transport-https ca-certificates \
-    && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv E1DD270288B4E6030699E45FA1715D88E1DF1F24 \
-    && echo "deb http://ppa.launchpad.net/git-core/ppa/ubuntu trusty main" >> /etc/apt/sources.list \
-    && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 9FD3B784BC1C6FC31A8A0A1C1655A0AB68576280 \
-    && echo "deb https://deb.nodesource.com/node_6.x trusty main" >> /etc/apt/sources.list \
-    && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 86E50310 \
-    && echo "deb http://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list \
-    && apt-get update \
-    && apt-get install -y git-core openssh-client curl libapparmor1 nodejs git-ftp libbz2-dev libfreetype6-dev libjpeg62-turbo-dev libmcrypt-dev libpng12-dev libgmp-dev libgmp3-dev libc-client2007e-dev zlib1g-dev libicu-dev g++ libpspell-dev libxml2-dev libsqlite3-dev libxslt-dev yarn \
-    && rm -rf /var/lib/apt/lists/* \
-;
+RUN apt-get update -y && \
+    apt-get upgrade -y && \
+    apt-get install -y ca-certificates wget apt-transport-https vim nano && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install php extensions using built-in tools
-RUN ln -s /usr/include/x86_64-linux-gnu/gmp.h /usr/include/gmp.h
-RUN docker-php-source extract \
-    && docker-php-ext-install -j$(nproc) bcmath bz2 calendar dba exif ftp gd gettext gmp intl mcrypt hash mysqli pcntl pdo_mysql pspell shmop soap sockets pdo_sqlite sysvmsg sysvsem sysvshm wddx xmlrpc xsl zip \
-    && docker-php-source delete \
-;
+RUN echo "deb https://packages.gitlab.com/runner/gitlab-ci-multi-runner/ubuntu/ `lsb_release -cs` main" > /etc/apt/sources.list.d/runner_gitlab-ci-multi-runner.list && \
+    wget -q -O - https://packages.gitlab.com/gpg.key | apt-key add - && \
+    apt-get update -y && \
+    apt-get install -y gitlab-ci-multi-runner && \
+    wget -q https://github.com/docker/machine/releases/download/v0.7.0/docker-machine-Linux-x86_64 -O /usr/bin/docker-machine && \
+    chmod +x /usr/bin/docker-machine && \
+    apt-get clean && \
+    mkdir -p /etc/gitlab-runner/certs && \
+    chmod -R 700 /etc/gitlab-runner && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install xdebug php extension
-RUN pecl install xdebug \
-    && echo "zend_extension=xdebug.so" > /usr/local/etc/php/conf.d/xdebug.ini \
-;
+ADD entrypoint /
+RUN chmod +x /entrypoint
 
-# Install composer
-RUN curl -sL https://getcomposer.org/composer.phar -o /usr/local/bin/composer && chmod +x /usr/local/bin/composer
-
-# Install phploy
-RUN curl -sL https://github.com/banago/PHPloy/raw/master/dist/phploy.phar -o /usr/local/bin/phploy && chmod +x /usr/local/bin/phploy
-
-# Install phpunit
-RUN curl -sL https://phar.phpunit.de/phpunit.phar -o /usr/local/bin/phpunit && chmod +x /usr/local/bin/phpunit
-
-CMD [ "bash" ]
+VOLUME ["/etc/gitlab-runner", "/home/gitlab-runner"]
+ENTRYPOINT ["/usr/bin/dumb-init", "/entrypoint"]
+CMD ["run", "--user=gitlab-runner", "--working-directory=/home/gitlab-runner"]
