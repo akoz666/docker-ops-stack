@@ -1,0 +1,40 @@
+version: '2'
+
+services:
+
+
+  db-postgresql:
+    container_name: db-postgresql
+    image: orchardup/postgresql:latest
+    environment:
+      - POSTGRESQL_USER=sonar
+      - POSTGRESQL_PASS=sonar
+      - POSTGRESQL_DB=sonar
+    volumes:
+      - /data/dev/docker-ops-stack/data/db-postgresql:/var/lib/postgresql:Z
+    ports:
+      - "5432:5432"
+
+  sonarqube:
+    restart: always
+    container_name: sonarqube
+    image: sonarqube
+    links:
+    - db-postgresql:db
+    ports:
+    - "10090:9000"
+    - "9092:9092"
+    environment:
+    - SONARQUBE_JDBC_USERNAME=sonar
+    - SONARQUBE_JDBC_PASSWORD=sonar
+    - SONARQUBE_JDBC_URL=jdbc:postgresql://db-postgresql/sonar
+    links:
+    - db-postgresql:db-postgresql
+    depends_on:
+    - db-postgresql
+    # volumes:
+    # - /data/dev/docker-ops-stack/data/sonarqube/sonarqube_conf:/opt/sonarqube/conf:Z
+    # - /data/dev/docker-ops-stack/data/sonarqube/sonarqube_data:/opt/sonarqube/data:Z
+    # - /data/dev/docker-ops-stack/data/sonarqube/sonarqube_extensions:/opt/sonarqube/extensions:Z
+    # - /data/dev/docker-ops-stack/data/sonarqube/sonarqube_bundled-plugins:/opt/sonarqube/lib/bundled-plugins:Z
+    # - /data/dev/docker-ops-stack/data/sonarqube/sonarqube-db/:/var/lib/postgresql:Z
